@@ -1,0 +1,29 @@
+evaluation:
+  output_dir: "outputs/reports"
+  benchmarks:
+    - mathvista
+    - egoschema
+    - vsr
+    - mme
+  latency_target_ms: 20.0        # Sub-20 ms AR/VR target
+  num_warmup_runs: 5
+  num_timed_runs: 50
+  device: "cuda"
+
+benchmarks:
+  mathvista:
+    dataset_id: "AI4Math/MathVista"
+    split: "testmini"
+    metric: "accuracy"
+  egoschema:
+    dataset_id: "lmms-lab/EgoSchema"
+    split: "test"
+    metric: "accuracy"
+  vsr:
+    dataset_id: "cambridgeltl/visual-spatial-reasoning"
+    split: "test"
+    metric: "accuracy"
+  mme:
+    dataset_id: "lmms-lab/MME"
+    split: "test"
+    metric: "score"

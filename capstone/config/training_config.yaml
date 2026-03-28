@@ -1,0 +1,38 @@
+training:
+  output_dir: "outputs/checkpoints"
+  num_epochs: 3
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 8
+  learning_rate: 2.0e-4
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  fp16: false
+  bf16: true
+  logging_steps: 10
+  save_steps: 200
+  save_total_limit: 3
+  dataloader_num_workers: 4
+  max_seq_length: 2048
+
+datasets:
+  mathvista:
+    weight: 0.4                  # Upsampled — high reasoning density
+    split: "train"
+    eval_split: "test"
+    max_samples: null
+  egoschema:
+    weight: 0.35
+    split: "train"
+    eval_split: "test"
+    max_samples: null
+  vsr:
+    weight: 0.25
+    split: "train"
+    eval_split: "test"
+    max_samples: null
+
+logit_cache:
+  output_dir: "outputs/logits"
+  file_prefix: "topk_logits"
+  chunk_size: 1000               # Records per JSONL file
