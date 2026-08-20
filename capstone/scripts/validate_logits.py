@@ -76,8 +76,9 @@ def validate_logits(logits_dir: str = "outputs/logits") -> Dict:
                     missing_fields = [f for f in required_fields if f not in record]
                     
                     if missing_fields:
-                        errors.append(f"{cache_file.name}:{line_num} - Missing fields: {missing_fields}")
-                        continue
+                        raise ValueError(
+                            f"{cache_file.name}:{line_num} - Missing fields: {missing_fields}"
+                        )
                     
                     valid_records += 1
                     
@@ -88,13 +89,19 @@ def validate_logits(logits_dir: str = "outputs/logits") -> Dict:
                     # Check ID uniqueness
                     sample_id = record.get("sample_id")
                     if sample_id in sample_ids:
-                        duplicate_ids.append(sample_id)
+                        raise ValueError(
+                            f"{cache_file.name}:{line_num} - Duplicate sample_id detected: {sample_id}"
+                        )
                     sample_ids.add(sample_id)
                     
                     # Validate logit structure
                     top_k_logits = record.get("topk_logits")
                     if isinstance(top_k_logits, list):
                         top_k_logits_array = np.array(top_k_logits, dtype=np.float32)
+                        if top_k_logits_array.ndim != 2:
+                            raise ValueError(
+                                f"{cache_file.name}:{line_num} - topk_logits must be rank-2 (seq_len, K), got {top_k_logits_array.shape}"
+                            )
                         logit_shapes[str(top_k_logits_array.shape)] += 1
                         
                         # Check for NaN/inf values
@@ -105,7 +112,9 @@ def validate_logits(logits_dir: str = "outputs/logits") -> Dict:
                         if (top_k_logits_array > 100).any() or (top_k_logits_array < -100).any():
                             warnings.append(f"{cache_file.name}:{line_num} - Logits out of expected range")
                     else:
-                        errors.append(f"{cache_file.name}:{line_num} - Invalid logits format (not list)")
+                        raise ValueError(
+                            f"{cache_file.name}:{line_num} - Invalid logits format (not list)"
+                        )
                     
                     # Track reasoning mask density (optional field)
                     reasoning_mask = record.get("reasoning_mask")

@@ -10,13 +10,14 @@ class EgoSchemaEval:
 
     BENCHMARK_NAME = "egoschema"
     CHOICE_KEYS = ["option 0", "option 1", "option 2", "option 3", "option 4"]
+    CONFIG_NAME = "MC"
 
     def __init__(self, engine: EvaluationEngine, split: str = "test"):
         self.engine = engine
         self.split = split
 
-    def run(self) -> dict:
-        dataset = load_dataset("lmms-lab/EgoSchema", split=self.split)
+    def run(self, max_samples: int | None = None) -> dict:
+        dataset = load_dataset("lmms-lab/EgoSchema", self.CONFIG_NAME, split=self.split)
         samples = []
         for s in dataset:
             question = s.get("question", "")
@@ -28,4 +29,8 @@ class EgoSchemaEval:
             answer = choices[answer_idx] if isinstance(answer_idx, int) else str(answer_idx)
             samples.append({"question": formatted, "answer": answer, "image": None})
 
-        return self.engine.runBenchmark(self.BENCHMARK_NAME, samples)
+        return self.engine.runBenchmark(
+            self.BENCHMARK_NAME,
+            samples,
+            max_samples=max_samples,
+        )

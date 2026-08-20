@@ -14,3 +14,6 @@ pyyaml>=6.0.1
 jsonlines>=4.0.0
 evaluate>=0.4.0
 lm-eval>=0.4.0
+huggingface_hub>=1.7.1
+matplotlib
+pytest>=9.0.2

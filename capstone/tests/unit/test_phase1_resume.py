@@ -38,10 +38,10 @@ class TestPhase1Resume:
         class FakePipeline:
             last_seen_ids: list[str] = []
 
-            def __init__(self, config_path=None):
+            def __init__(self, config_path=None, disengagement_mode=None, max_new_tokens_override=None):
                 self.config_path = config_path
 
-            def run(self, samples):
+            def run(self, samples, total=None):
                 FakePipeline.last_seen_ids = [s["id"] for s in samples]
                 for sample_id in FakePipeline.last_seen_ids:
                     yield _make_record(sample_id)

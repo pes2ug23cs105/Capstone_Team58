@@ -44,6 +44,12 @@ class DistillationTrainer:
 
         # Inject LoRA adapters
         self.peft_model = self.lora.injectAdapters(self.student.model)
+        self.peft_model = self.peft_model.to("cuda")
+
+        for name, param in self.peft_model.named_parameters():
+            if param.device.type == "meta":
+                print("META PARAM:", name)
+                raise RuntimeError(f"Found meta parameter after LoRA injection: {name}")
 
         self.optimizer = AdamW(
             filter(lambda p: p.requires_grad, self.peft_model.parameters()),
@@ -51,7 +57,7 @@ class DistillationTrainer:
             weight_decay=float(self.cfg["weight_decay"]),
         )
 
-    def train(self, dataloader: DataLoader) -> None:
+    def train(self, dataloader: DataLoader, max_steps: int | None = None) -> None:
         """
         Run the full training loop.
 
@@ -63,6 +69,8 @@ class DistillationTrainer:
         num_epochs = self.cfg["num_epochs"]
         grad_accum = self.cfg["gradient_accumulation_steps"]
         total_steps = len(dataloader) * num_epochs // grad_accum
+        if max_steps is not None:
+            total_steps = max(1, min(total_steps, max_steps))
 
         warmup_steps = int(total_steps * self.cfg["warmup_ratio"])
         scheduler = get_cosine_schedule_with_warmup(
@@ -71,9 +79,10 @@ class DistillationTrainer:
             num_training_steps=total_steps,
         )
 
-        device = next(self.peft_model.parameters()).device
+        device = torch.device("cuda")
         self.peft_model.train()
         global_step = 0
+        should_stop = False
 
         for epoch in range(num_epochs):
             epoch_loss = 0.0
@@ -123,8 +132,15 @@ class DistillationTrainer:
                         self.lora.save_adapter(self.peft_model, str(ckpt_path))
                         logger.info("Saved adapter checkpoint to %s", ckpt_path)
 
+                    if max_steps is not None and global_step >= max_steps:
+                        logger.info("Reached max_steps=%d for smoke run, stopping early.", max_steps)
+                        should_stop = True
+                        break
+
             avg = epoch_loss / len(dataloader)
             logger.info("Epoch %d/%d complete — avg loss: %.4f", epoch + 1, num_epochs, avg)
+            if should_stop:
+                break
 
         # Final save
         final_path = self.output_dir / "final_adapter"

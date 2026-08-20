@@ -2,7 +2,7 @@ teacher:
   model_id: "Qwen/Qwen2.5-VL-3B-Instruct"
   load_in_4bit: true
   device_map: "auto"
-  max_new_tokens: 8
+  max_new_tokens: 32
   top_k_logits: 8
 
 student:

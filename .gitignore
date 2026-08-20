@@ -1,16 +1,90 @@
+# =========================
 # Python virtual environment
+# =========================
 .venv/
+.venv310/
+venv/
+env/
+
+# =========================
+# Python cache
+# =========================
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.egg-info/
 
-# Data and Outputs (Too large for GitHub)
+# =========================
+# Data and Outputs (VERY IMPORTANT)
+# =========================
 capstone/data/
 capstone/outputs/
 images/
+figures/
+runs/
 
+# Distillation / ML artifacts
+outputs/
+checkpoints/
+*.pt
+*.pth
+*.bin
+*.ckpt
+*.jsonl
+
+# Logit cache (your pipeline)
+distillation/logit_cache/
+outputs/logits/
+
+# =========================
+# Large ML artifacts / archives
+# =========================
+*.safetensors
+*.onnx
+*.parquet
+*.arrow
+*.zip
+*.tar
+*.tar.gz
+*.pt
+*.pth
+*.bin
+*.ckpt
+
+# HuggingFace / ML caches
+.cache/
+huggingface/
+transformers_cache/
+
+# =========================
 # IDE settings
+# =========================
 .vscode/
 .idea/
 
-# Environment variables / API Keys
+# =========================
+# Environment variables
+# =========================
 .env
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
+
+# Generated validation-run output (not source/config)
+validate_output.txt
+validation_report.txt
+
+# =========================
+# Jupyter
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db

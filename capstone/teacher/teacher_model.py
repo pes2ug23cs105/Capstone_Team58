@@ -68,7 +68,10 @@ class TeacherModel:
 
     @torch.no_grad()
     def extractLogits(
-        self, question: str, image: Image.Image | None = None
+        self,
+        question: str,
+        image: Image.Image | None = None,
+        max_new_tokens: int | None = None,
     ) -> tuple[torch.Tensor, str]:
         """
         Run teacher inference and return:
@@ -80,13 +83,21 @@ class TeacherModel:
         inputs = self._build_inputs(question, image)
         outputs = self.model.generate(
             **inputs,
-            max_new_tokens=self.max_new_tokens,
+            max_new_tokens=max_new_tokens or self.max_new_tokens,
             do_sample=False,
             return_dict_in_generate=True,
             output_scores=True,      # scores = per-step logits over vocab
         )
-        # scores is a tuple of (vocab_size,) tensors, one per generated step
-        logits = torch.stack(outputs.scores, dim=0).cpu()  # (seq_len, vocab_size)
+        # scores commonly stack to (seq_len, batch, vocab_size). For single-item
+        # inference we normalize to (seq_len, vocab_size) and fail fast otherwise.
+        logits = torch.stack(outputs.scores, dim=0)
+        if logits.dim() == 3 and logits.size(1) == 1:
+            logits = logits.squeeze(1)
+        if logits.dim() != 2:
+            raise ValueError(
+                f"Teacher logits must be 2D (seq_len, vocab_size), got shape {tuple(logits.shape)}"
+            )
+        logits = logits.cpu()
 
         new_ids = outputs.sequences[0, inputs["input_ids"].shape[1]:]
         trace = self.processor.decode(new_ids, skip_special_tokens=True)

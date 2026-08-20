@@ -1,0 +1,23 @@
+paths:
+  model_config: config/model_config.smoke.yaml
+  train_config: config/training_config.smoke.yaml
+  eval_config: config/eval_config.yaml
+
+preflight:
+  sample_count: 5
+
+phase1:
+  dataset_size: 30
+  max_new_tokens: 64
+  batch_size: 1
+  disengagement_mode: approx
+  enable_disengagement: true
+
+phase2:
+  max_steps: 30
+  batch_size: 1
+  adapter_path: outputs/checkpoints_smoke/final_adapter
+
+phase3:
+  max_samples_per_benchmark: 1
+  disable_expensive_metrics: true

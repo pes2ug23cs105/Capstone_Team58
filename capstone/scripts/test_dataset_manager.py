@@ -1,7 +1,8 @@
 from data.pipeline.dataset_manager import DatasetManager
 
-# Use absolute path to config (works when exec'd from any location)
-config_path = r"C:\Users\PESU-RF\Desktop\TEAM58_Capstone\capstone\config\training_config.yaml"
+# Relative to the project's config path convention (run from the capstone/ directory),
+# matching every other pipeline entrypoint (phase1/phase2/phase3).
+config_path = "config/training_config.yaml"
 
 # Use small max_samples during dev — avoids downloading full datasets
 manager = DatasetManager.from_config(config_path)

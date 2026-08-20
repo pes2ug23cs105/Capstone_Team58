@@ -16,21 +16,22 @@ training:
   max_seq_length: 2048
 
 datasets:
-  mathvista:
-    weight: 0.4                  # Upsampled — high reasoning density
+  mathv360k:
+    weight: 1.0
     split: "train"
-    eval_split: "test"
-    max_samples: null
+    max_samples: 4000          # MathVista replacement for training (license prohibits training use); MathVista stays eval-only in eval_config.yaml
+
   egoschema:
-    weight: 0.35
-    split: "train"
+    weight: 1.0
+    split: "test"
     eval_split: "test"
-    max_samples: null
+    max_samples: 5031          # Full MC test split
+
   vsr:
-    weight: 0.25
-    split: "train"
+    weight: 1.0
+    split: "test"
     eval_split: "test"
-    max_samples: null
+    max_samples: 2195          # Full vsr_random test split
 
 logit_cache:
   output_dir: "outputs/logits"

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Iterator
 
@@ -53,26 +54,36 @@ class LogitCache:
     def write(self, records: Iterator[DistillationRecord]) -> int:
         """
         Consume an iterator of DistillationRecords and write them to chunked
-        JSONL files.
+        JSONL files, fsyncing after every record so a crash loses at most
+        the one record in flight rather than a whole in-memory buffer.
 
         Returns:
             total number of records written.
         """
         chunk_idx = self._next_chunk_index()
-        buffer: list[str] = []
         total = 0
+        count_in_chunk = 0
+        handle = None
 
-        for record in records:
-            buffer.append(record.to_jsonl_line())
-            total += 1
+        try:
+            for record in records:
+                if handle is None:
+                    handle = self._open_chunk(chunk_idx)
 
-            if len(buffer) >= self.chunk_size:
-                self._flush(buffer, chunk_idx)
-                buffer.clear()
-                chunk_idx += 1
+                handle.write(record.to_jsonl_line() + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+                total += 1
+                count_in_chunk += 1
 
-        if buffer:
-            self._flush(buffer, chunk_idx)
+                if count_in_chunk >= self.chunk_size:
+                    handle.close()
+                    handle = None
+                    chunk_idx += 1
+                    count_in_chunk = 0
+        finally:
+            if handle is not None:
+                handle.close()
 
         files_written = 0
         if total > 0:
@@ -80,10 +91,9 @@ class LogitCache:
         logger.info("LogitCache: wrote %d records across %d files.", total, files_written)
         return total
 
-    def _flush(self, lines: list[str], chunk_idx: int) -> None:
+    def _open_chunk(self, chunk_idx: int):
         path = self.output_dir / f"{self.file_prefix}_{chunk_idx:04d}.jsonl"
-        with open(path, "w", encoding="utf-8") as f:
-            f.write("\n".join(lines) + "\n")
+        return open(path, "w", encoding="utf-8")
 
     def _next_chunk_index(self) -> int:
         files = sorted(self.output_dir.glob(f"{self.file_prefix}_*.jsonl"))

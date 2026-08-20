@@ -27,9 +27,11 @@ class StudentModel:
         self.processor = AutoProcessor.from_pretrained(self.model_id)
         self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             self.model_id,
-            device_map=cfg.get("device_map", "auto"),
+            device_map=None,
+            low_cpu_mem_usage=False,
             torch_dtype=torch.bfloat16,
         )
+        self.model = self.model.to("cuda")
         self.model.train()
 
     # ------------------------------------------------------------------ #

@@ -17,17 +17,9 @@ training:
 
 datasets:
   mathvista:
-    weight: 0.4
-    split: "train"
-    max_samples: 1
-  egoschema:
-    weight: 0.35
-    split: "train"
-    max_samples: 1
-  vsr:
-    weight: 0.25
-    split: "train"
-    max_samples: 1
+    weight: 1.0
+    split: "testmini"
+    max_samples: 30
 
 logit_cache:
   output_dir: "outputs/logits_smoke"

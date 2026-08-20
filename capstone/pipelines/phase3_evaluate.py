@@ -20,6 +20,7 @@ from pathlib import Path
 import yaml
 
 from evaluation.benchmarks import EgoSchemaEval, MathVistaEval, MMEEval, VSREval
+from evaluation.demo_logger import DemoExampleLogger
 from evaluation.error_analysis import ErrorAnalyzer
 from evaluation.evaluation_engine import EvaluationEngine
 from student.lora_adapter import LoRAAdapter
@@ -43,6 +44,8 @@ def run_phase3(
     model_config: str = "config/model_config.yaml",
     eval_config: str = "config/eval_config.yaml",
     adapter_path: str | None = None,
+    benchmark_max_samples: int | None = None,
+    run_system_metrics: bool = True,
 ) -> None:
     logger.info("=== Phase 3: Evaluation and Deployment Analysis ===")
 
@@ -60,8 +63,13 @@ def run_phase3(
     else:
         logger.info("No adapter path provided — evaluating base student model.")
 
-    # 2. Build evaluation engine
-    engine = EvaluationEngine(student, config_path=eval_config)
+    # Initialize demo example logger for qualitative analysis
+    output_dir = Path(ecfg["evaluation"]["output_dir"])
+    demo_logger = DemoExampleLogger(output_dir=output_dir)
+    logger.info("Demo examples will be logged to %s", demo_logger.examples_file)
+
+    # 2. Build evaluation engine (with demo logger)
+    engine = EvaluationEngine(student, config_path=eval_config, demo_logger=demo_logger)
     all_results: dict = {}
 
     # 3. Run benchmarks
@@ -72,22 +80,26 @@ def run_phase3(
             logger.warning("Unknown benchmark '%s' — skipping.", bname)
             continue
         logger.info("Running benchmark: %s", bname)
-        result = cls(engine).run()
+        result = cls(engine).run(max_samples=benchmark_max_samples)
         all_results[bname] = result
 
     # 4. Latency + VRAM measurement (using first sample from MathVista as a proxy)
-    logger.info("Measuring latency and VRAM...")
-    proxy_sample = {"question": "What is 2 + 2?", "image": None, "answer": "4"}
-    latency = engine.measureLatency(proxy_sample)
-    vram = engine.measureVRAM()
-    all_results["latency"] = latency
-    all_results["vram"] = vram
+    if run_system_metrics:
+        logger.info("Measuring latency and VRAM...")
+        proxy_sample = {"question": "What is 2 + 2?", "image": None, "answer": "4"}
+        latency = engine.measureLatency(proxy_sample)
+        vram = engine.measureVRAM()
+        all_results["latency"] = latency
+        all_results["vram"] = vram
 
     # 5. Save consolidated report
     output_dir = Path(ecfg["evaluation"]["output_dir"])
     report_path = output_dir / "consolidated_report.json"
     with open(report_path, "w") as f:
         json.dump(all_results, f, indent=2)
+
+    # 6. Finalize demo logger with summary and WOW cases
+    demo_logger.finalize()
 
     logger.info("Phase 3 complete. Report saved to %s", report_path)
     _print_summary(all_results)
@@ -115,5 +127,13 @@ if __name__ == "__main__":
     parser.add_argument("--model-config", default="config/model_config.yaml")
     parser.add_argument("--eval-config", default="config/eval_config.yaml")
     parser.add_argument("--adapter-path", default=None)
+    parser.add_argument("--benchmark-max-samples", type=int, default=None)
+    parser.add_argument("--skip-system-metrics", action="store_true")
     args = parser.parse_args()
-    run_phase3(args.model_config, args.eval_config, args.adapter_path)
+    run_phase3(
+        args.model_config,
+        args.eval_config,
+        args.adapter_path,
+        benchmark_max_samples=args.benchmark_max_samples,
+        run_system_metrics=not args.skip_system_metrics,
+    )

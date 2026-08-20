@@ -14,7 +14,7 @@ class MMEEval:
         self.engine = engine
         self.split = split
 
-    def run(self) -> dict:
+    def run(self, max_samples: int | None = None) -> dict:
         dataset = load_dataset("lmms-lab/MME", split=self.split)
         samples = [
             {
@@ -25,7 +25,10 @@ class MMEEval:
             for s in dataset
         ]
         return self.engine.runBenchmark(
-            self.BENCHMARK_NAME, samples, extract_pred=self._extract
+            self.BENCHMARK_NAME,
+            samples,
+            extract_pred=self._extract,
+            max_samples=max_samples,
         )
 
     @staticmethod

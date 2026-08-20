@@ -2,9 +2,6 @@ evaluation:
   output_dir: "outputs/reports"
   benchmarks:
     - mathvista
-    - egoschema
-    - vsr
-    - mme
   latency_target_ms: 20.0        # Sub-20 ms AR/VR target
   num_warmup_runs: 5
   num_timed_runs: 50

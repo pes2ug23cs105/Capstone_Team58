@@ -25,11 +25,16 @@ class DistillationDataset(Dataset):
         cache: LogitCache,
         processor: AutoProcessor,
         max_seq_length: int = 2048,
+        allowed_sources: set[str] | None = None,
     ):
         self.processor = processor
         self.max_seq_length = max_seq_length
         # Load all records into memory; for large caches use a streaming variant
-        self._records: list[DistillationRecord] = list(cache.read())
+        records = list(cache.read())
+        if allowed_sources is not None:
+            records = [r for r in records if r.source in allowed_sources]
+        self._records: list[DistillationRecord] = records
+        self.sources: list[str] = [r.source for r in self._records]
 
     def __len__(self) -> int:
         return len(self._records)
@@ -37,7 +42,21 @@ class DistillationDataset(Dataset):
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
         rec = self._records[idx]
         L = self.max_seq_length
-        K = len(rec.topk_indices[0]) if rec.topk_indices else 64
+        topk_indices_raw = self._normalize_topk_shape(rec.topk_indices, "topk_indices")
+        topk_logits_raw = self._normalize_topk_shape(rec.topk_logits, "topk_logits")
+        K = len(topk_indices_raw[0]) if topk_indices_raw else 64
+
+        if len(topk_indices_raw) != len(topk_logits_raw):
+            raise ValueError(
+                "topk_indices/topk_logits length mismatch: "
+                f"{len(topk_indices_raw)} != {len(topk_logits_raw)}"
+            )
+        if topk_indices_raw and topk_logits_raw:
+            if len(topk_indices_raw[0]) != len(topk_logits_raw[0]):
+                raise ValueError(
+                    "topk_indices/topk_logits K mismatch: "
+                    f"{len(topk_indices_raw[0])} != {len(topk_logits_raw[0])}"
+                )
 
         # Tokenise the question (prompt only — labels mask these positions)
         enc = self.processor.tokenizer(
@@ -65,8 +84,8 @@ class DistillationDataset(Dataset):
         labels[:prompt_len] = -100
 
         # Pad or truncate teacher tensors to seq_len
-        teacher_indices = self._pad_or_truncate_2d(rec.topk_indices, seq_len, K, 0)
-        teacher_logprobs = self._pad_or_truncate_2d(rec.topk_logits, seq_len, K, -1e9)
+        teacher_indices = self._pad_or_truncate_2d(topk_indices_raw, seq_len, K, 0)
+        teacher_logprobs = self._pad_or_truncate_2d(topk_logits_raw, seq_len, K, -1e9)
         entropy = self._pad_or_truncate_1d(rec.entropy_scores, seq_len, 0.0)
         reasoning_mask = self._pad_or_truncate_1d(rec.reasoning_mask, seq_len, False)
 
@@ -94,4 +113,31 @@ class DistillationDataset(Dataset):
         data = list(data[:target_len])
         while len(data) < target_len:
             data.append(pad_val)
+        return data
+
+    @staticmethod
+    def _normalize_topk_shape(data: list, field_name: str) -> list[list]:
+        """
+        Accept both (L, K) and legacy (L, 1, K); normalize to (L, K).
+        """
+        if not data:
+            return []
+        if not isinstance(data, list):
+            raise ValueError(f"{field_name} must be a list, got {type(data)}")
+
+        first = data[0]
+        if isinstance(first, list) and first and isinstance(first[0], list):
+            collapsed: list[list] = []
+            for row in data:
+                if len(row) != 1:
+                    raise ValueError(
+                        f"{field_name} legacy 3D shape requires middle dim size 1, got {len(row)}"
+                    )
+                collapsed.append(row[0])
+            data = collapsed
+
+        if not data or not isinstance(data[0], list):
+            raise ValueError(f"{field_name} must be 2D after normalization")
+        if data[0] and isinstance(data[0][0], list):
+            raise ValueError(f"{field_name} still has rank > 2 after normalization")
         return data
